@@ -8,7 +8,8 @@ public class LevelLargestSum {
 
         int maxSum = root.getData();
         int maxSumLevel = 0;
-        Deque<BinNode> queue = new ArrayDeque<>();
+        int currentLevel = 0;
+        Deque<BinNode<Integer>> queue = new ArrayDeque<>();
         queue.add(root);
 
         while (!queue.isEmpty()) {
@@ -16,11 +17,9 @@ public class LevelLargestSum {
             int currSum = 0;
             while (count > 0) {
                 count--;
-                BinNode temp = queue.poll();
+                BinNode<Integer> temp = queue.poll();
                 if (temp != null) {
-                    currSum = currSum + (int) temp.getData();
-
-
+                    currSum += temp.getData();
                     if (temp.getLeft() != null)
                         queue.add(temp.getLeft());
                     if (temp.getRight() != null)
@@ -30,9 +29,9 @@ public class LevelLargestSum {
 
             if(currSum > maxSum){
                 maxSum = currSum;
-                maxSumLevel++;
+                maxSumLevel = currentLevel;
             }
-
+            currentLevel++;
         }
         return maxSumLevel;
     }

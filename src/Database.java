@@ -5,7 +5,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class Database {
     private Map<String, String> data;
-    private int maxNumOfReaders;
+    private final int maxNumOfReaders;
     private int currentNumOfReaders = 0;
     private final Set<Thread> readerThreads;
     private boolean isWriting = false;
@@ -37,8 +37,20 @@ public class Database {
      * indicates is thread can read from data
      */
     public boolean readTryAcquire() {
-        return (!this.isWriting && currentNumOfReaders != maxNumOfReaders);
+        //return (!this.isWriting && currentNumOfReaders != maxNumOfReaders);
         //return (!this.isWriting && waitingWriters == 0 && currentNumOfReaders != maxNumOfReaders);
+        lock.lock();
+        try {
+            if (isWriting || currentNumOfReaders == maxNumOfReaders) {
+                return false;
+            }
+            currentNumOfReaders++;
+            readerThreads.add(Thread.currentThread());
+            return true;
+
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -47,7 +59,7 @@ public class Database {
     public void readAcquire(){
         lock.lock();
         try {
-            while (!readTryAcquire() || waitingWriters > 0)
+            while (isWriting || currentNumOfReaders == maxNumOfReaders || waitingWriters > 0)
                 okToRead.await();
 
             currentNumOfReaders++;
@@ -72,10 +84,10 @@ public class Database {
             else {
                 currentNumOfReaders--;
                 readerThreads.remove(Thread.currentThread());
-                if (currentNumOfReaders == 0)
-                    okToWrite.signal();
-                else if (currentNumOfReaders < maxNumOfReaders)
-                    okToRead.signal();
+                //if (currentNumOfReaders == 0)
+                    okToWrite.signalAll();
+                //else if (currentNumOfReaders < maxNumOfReaders)
+                    okToRead.signalAll();
             }
         }
         finally {
@@ -87,7 +99,7 @@ public class Database {
         lock.lock();
         try {
             waitingWriters++;
-            while (!writeTryAcquire())
+            while (isWriting || currentNumOfReaders > 0)
                 okToWrite.await();
 
             isWriting = true;
@@ -103,7 +115,18 @@ public class Database {
     }
 
     public boolean writeTryAcquire() {
-        return !isWriting && currentNumOfReaders == 0;
+        //return !isWriting && currentNumOfReaders == 0;
+        lock.lock();
+        try {
+            if (isWriting || currentNumOfReaders > 0) {
+                return false;
+            }
+            isWriting = true;
+            writerThread = Thread.currentThread();
+            return true;
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeRelease() throws IllegalMonitorStateException{
@@ -116,6 +139,7 @@ public class Database {
                 isWriting = false;
                 writerThread = null;
                 okToWrite.signalAll();
+                okToRead.signalAll();
             }
         }
         finally {
