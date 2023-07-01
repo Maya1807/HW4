@@ -57,16 +57,21 @@ public class Database {
      * @return true if the current thread successfully acquires read access, false otherwise
      */
     public boolean readTryAcquire() {
+        boolean acquired = false;
         lock.lock();
         try {
             if (isWriting || currentNumOfReaders == maxNumOfReaders) {
-                return false;
+                acquired = false;
             }
-            currentNumOfReaders++;
-            readerThreads.add(Thread.currentThread());
-            return true;
+            else {
+                readerThreads.add(Thread.currentThread());
+                currentNumOfReaders++;
+                acquired = true;
+            }
+
         } finally {
             lock.unlock();
+            return acquired;
         }
     }
 
