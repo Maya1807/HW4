@@ -2,6 +2,12 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 
 public class LevelLargestSum {
+    /**
+     * Returns the level number with the largest sum of node values in the given binary tree.
+     *
+     * @param root the root node of the binary tree
+     * @return the level number with the largest sum of node values, or -1 if the tree is empty
+     */
     public static int getLevelWithLargestSum(BinNode<Integer> root) {
         if (root == null)
             return -1;
@@ -27,7 +33,7 @@ public class LevelLargestSum {
                 }
             }
 
-            if(currSum > maxSum){
+            if (currSum > maxSum) {
                 maxSum = currSum;
                 maxSumLevel = currentLevel;
             }
@@ -36,3 +42,4 @@ public class LevelLargestSum {
         return maxSumLevel;
     }
 }
+

@@ -2,7 +2,9 @@ import java.util.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
-
+/**
+ * Represents a thread-safe database with read and write access control.
+ */
 public class Database {
     private Map<String, String> data;
     private final int maxNumOfReaders;
@@ -15,9 +17,13 @@ public class Database {
     private final Condition okToWrite;
     private int waitingWriters = 0;
 
-
+    /**
+     * Constructs a new Database object with the specified maximum number of readers.
+     *
+     * @param maxNumOfReaders the maximum number of threads allowed to read concurrently
+     */
     public Database(int maxNumOfReaders) {
-        data = new HashMap<>();  // Note: You may add fields to the class and initialize them in here. Do not add parameters!
+        data = new HashMap<>();
         this.maxNumOfReaders = maxNumOfReaders;
         readerThreads = new HashSet<>();
         lock = new ReentrantLock();
@@ -25,20 +31,32 @@ public class Database {
         okToWrite = lock.newCondition();
     }
 
+    /**
+     * Puts a key-value pair into the database.
+     *
+     * @param key   the key associated with the value
+     * @param value the value to be stored
+     */
     public void put(String key, String value) {
         data.put(key, value);
     }
 
+    /**
+     * Retrieves the value associated with the specified key from the database.
+     *
+     * @param key the key whose associated value is to be retrieved
+     * @return the value associated with the key, or null if the key is not present in the database
+     */
     public String get(String key) {
         return data.get(key);
     }
 
     /**
-     * indicates is thread can read from data
+     * Attempts to acquire read access to the database.
+     *
+     * @return true if the current thread successfully acquires read access, false otherwise
      */
     public boolean readTryAcquire() {
-        //return (!this.isWriting && currentNumOfReaders != maxNumOfReaders);
-        //return (!this.isWriting && waitingWriters == 0 && currentNumOfReaders != maxNumOfReaders);
         lock.lock();
         try {
             if (isWriting || currentNumOfReaders == maxNumOfReaders) {
@@ -47,16 +65,15 @@ public class Database {
             currentNumOfReaders++;
             readerThreads.add(Thread.currentThread());
             return true;
-
         } finally {
             lock.unlock();
         }
     }
 
     /**
-     * puts thread is wait mode if it's not allowed to read from data.
+     * Acquires read access to the database. If read access is not available, the thread will wait until it can acquire access.
      */
-    public void readAcquire(){
+    public void readAcquire() {
         lock.lock();
         try {
             while (isWriting || currentNumOfReaders == maxNumOfReaders || waitingWriters > 0)
@@ -64,37 +81,37 @@ public class Database {
 
             currentNumOfReaders++;
             readerThreads.add(Thread.currentThread());
-
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-        }
-        finally {
+        } finally {
             lock.unlock();
         }
-
     }
 
+    /**
+     * Releases read access to the database.
+     *
+     * @throws IllegalMonitorStateException if the current thread does not hold read access
+     */
     public void readRelease() throws IllegalMonitorStateException {
         lock.lock();
         try {
             if (!readerThreads.contains(Thread.currentThread())) {
                 throw new IllegalMonitorStateException("Illegal read release attempt");
-            }
-            else {
+            } else {
                 currentNumOfReaders--;
                 readerThreads.remove(Thread.currentThread());
-                //if (currentNumOfReaders == 0)
-                    okToWrite.signalAll();
-                //else if (currentNumOfReaders < maxNumOfReaders)
-                    okToRead.signalAll();
+                okToWrite.signalAll();
+                okToRead.signalAll();
             }
-        }
-        finally {
+        } finally {
             lock.unlock();
         }
     }
 
+    /**
+     * Acquires write access to the database. If write access is not available, the thread will wait until it can acquire access.
+     */
     public void writeAcquire() {
         lock.lock();
         try {
@@ -104,18 +121,20 @@ public class Database {
 
             isWriting = true;
             writerThread = Thread.currentThread();
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-        }
-        finally {
+        } finally {
             waitingWriters--;
             lock.unlock();
         }
     }
 
+    /**
+     * Attempts to acquire write access to the database.
+     *
+     * @return true if the current thread successfully acquires write access, false otherwise
+     */
     public boolean writeTryAcquire() {
-        //return !isWriting && currentNumOfReaders == 0;
         lock.lock();
         try {
             if (isWriting || currentNumOfReaders > 0) {
@@ -129,20 +148,23 @@ public class Database {
         }
     }
 
-    public void writeRelease() throws IllegalMonitorStateException{
+    /**
+     * Releases write access to the database.
+     *
+     * @throws IllegalMonitorStateException if the current thread does not hold write access
+     */
+    public void writeRelease() throws IllegalMonitorStateException {
         lock.lock();
         try {
             if (writerThread == null || !writerThread.equals(Thread.currentThread())) {
                 throw new IllegalMonitorStateException("Illegal write release attempt");
-            }
-            else {
+            } else {
                 isWriting = false;
                 writerThread = null;
                 okToWrite.signalAll();
                 okToRead.signalAll();
             }
-        }
-        finally {
+        } finally {
             lock.unlock();
         }
     }
