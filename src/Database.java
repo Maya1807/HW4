@@ -121,6 +121,7 @@ public class Database {
     /**
      * Acquires write access to the database. If write access is not available, the thread will wait until it can acquire access.
      */
+
     public void writeAcquire() {
         lock.lock();
         try {
